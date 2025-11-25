@@ -1,0 +1,15 @@
+dataset: CSL-Daily
+input_dim: 1024
+
+epochs: 100
+warmup_epochs: 50
+batch_size: 8
+device: mps
+
+patience: 9
+gamma: 0.2
+scheduler_patience: 3
+
+ctc_weight: 1
+kl_weight: 1
+mse_weight: 10
