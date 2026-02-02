@@ -31,7 +31,7 @@ def set_rng_state(seed):
 
 def single_loop(model, optimizer, loader, train=True, epoch=None):
     total_loss = 0
-    full_labels, full_decoded, full_cslr_stream_decoded = [], [], []
+    full_labels, full_decoded, full_rgb_stream_decoded, full_pose_stream_decoded = [], [], [], []
 
     if train: model.train()
     else: model.eval()
@@ -75,10 +75,11 @@ def single_loop(model, optimizer, loader, train=True, epoch=None):
 
             total_loss += loss.item()
         else:
-            label_text, decoded, cslr_stream_decoded = outputs
+            label_text, decoded, rgb_stream_decoded, pose_stream_decoded = outputs
             full_decoded.extend(decoded)
             full_labels.extend(label_text)
-            full_cslr_stream_decoded.extend(cslr_stream_decoded)
+            full_rgb_stream_decoded.extend(rgb_stream_decoded)
+            full_pose_stream_decoded.extend(pose_stream_decoded)
 
         # set postfix description
         if train:
@@ -87,8 +88,7 @@ def single_loop(model, optimizer, loader, train=True, epoch=None):
                 "Loss": f"{loss.item():.4f}"
             })
 
-    return total_loss, full_labels, full_decoded, full_cslr_stream_decoded
-
+    return total_loss, full_labels, full_decoded, full_rgb_stream_decoded, full_pose_stream_decoded
 
 def main(args, main_logger, pred_logger):
     for k,v in vars(args).items():
@@ -115,21 +115,23 @@ def main(args, main_logger, pred_logger):
     best_wer = 1000
     patience = args.patience
     for epoch in range(args.epochs):
-        total_loss, full_decoded, full_labels, full_cslr_stream_decoded = None, None, None, None
+        total_loss, full_decoded, full_labels, full_rgb_stream_decoded, full_pose_stream_decoded = None, None, None, None, None
         if args.mode == 'train':
-            total_loss, _, _, _ = single_loop(model, optimizer, train_loader, train=True, epoch=epoch)
+            total_loss, _, _, _, _ = single_loop(model, optimizer, train_loader, train=True, epoch=epoch)
             main_logger(f"[{epoch+1}/{args.epochs}], Training Loss: {total_loss/len(train_loader)}, - Learning Rate: {optimizer.param_groups[0]['lr']:.8f}")
 
-        _, full_labels, full_decoded, full_cslr_stream_decoded = single_loop(model, optimizer, test_loader, train=False)
+        _, full_labels, full_decoded, full_rgb_stream_decoded, full_pose_stream_decoded = single_loop(model, optimizer, test_loader, train=False)
         wer_main = wer_list(full_labels, full_decoded)["wer"]
-        wer_cslr_stream = wer_list(full_labels, full_cslr_stream_decoded)["wer"]
-        main_logger(f"[{epoch+1}/{args.epochs}], Validation WER (Main): {wer_main:.4f}, Validation WER (CSLR Stream): {wer_cslr_stream:.4f}")
+        wer_rgb_stream = wer_list(full_labels, full_rgb_stream_decoded)["wer"]
+        wer_pose_stream = wer_list(full_labels, full_pose_stream_decoded)["wer"]
+        main_logger(f"[{epoch+1}/{args.epochs}], Validation WER (Main): {wer_main:.4f}, Validation WER (RGB Stream): {wer_rgb_stream:.4f}, Validation WER (Pose Stream): {wer_pose_stream:.4f}")
 
         if args.mode == "train": pred_logger(f"=== Epoch {epoch+1} Predictions ===")
         for i in range(5 if args.mode == 'train' else len(full_labels)):
             pred_logger(f"GT   : {full_labels[i]}")
             pred_logger(f"Pred : {full_decoded[i]}")
-            pred_logger(f"CSLR : {full_cslr_stream_decoded[i]}\n")
+            pred_logger(f"RGB  : {full_rgb_stream_decoded[i]}")
+            pred_logger(f"Pose : {full_pose_stream_decoded[i]}\n")
 
         if args.mode == 'train' and wer_main < best_wer:
             best_wer = wer_main
