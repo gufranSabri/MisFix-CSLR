@@ -191,19 +191,12 @@ class CustomMLM(nn.Module):
 
         rgb_logits, fts, conv_op = self.slr_head(inp["visual_fts"], inp["vid_lgt"])   # B × H
         mask = self.create_mask(seq_lengths=conv_op['feat_len'].tolist(), device=input_ids.device)
-        fused = self.vft_cross_attention(
-            q=sa_out,
-            k=fts,
-            v=fts,
-            key_padding_mask=~mask
-        ) + sa_out
-        logits = self.mlm_head(fused)
-        
+
         pose_logits, pose_fts, pose_conv_op = None, None, None
         if self.include_pose:
             pose_features = self.pose_encoder(inp["pose_fts"], inp["pose_lgt"])
             pose_logits, pose_fts, pose_conv_op = self.slr_head_pose(pose_features.permute(0, 2, 1), inp["pose_lgt"])  
-            
+
             sa_out = self.pft_cross_attention(
                 q=sa_out,
                 k=pose_features,
@@ -217,6 +210,15 @@ class CustomMLM(nn.Module):
                 v=pose_fts,
                 key_padding_mask=~self.create_mask(pose_conv_op["feat_len"].tolist(), device=inp["visual_fts"].device)
             ) + sa_out
+
+        fused = self.vft_cross_attention(
+            q=sa_out,
+            k=fts,
+            v=fts,
+            key_padding_mask=~mask
+        ) + sa_out
+        
+        logits = self.mlm_head(fused)
 
         if self.training:
             loss = self.compute_ctc_loss(
