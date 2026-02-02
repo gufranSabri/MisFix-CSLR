@@ -1,15 +1,21 @@
-dataset: CSL-Daily
-input_dim: 1024
-
-epochs: 100
-warmup_epochs: 50
-batch_size: 8
 device: mps
+
+include_pose: True
+
+blank_id: 0
+feature_input_dim: 2304
+
+p_sub: 0.3
+p_ins: 0.1
+p_del: 0.1
+
+batch_size: 8
+learning_rate: 0.0001
+epochs: 100
+warmup_epochs: 0
 
 patience: 9
 gamma: 0.2
 scheduler_patience: 3
 
-ctc_weight: 1
-kl_weight: 1
-mse_weight: 10
+llm: google-bert/bert-base-multilingual-cased
